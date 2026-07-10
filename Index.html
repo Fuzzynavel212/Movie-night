@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Night - Quiz & Selector</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #111;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1, h2 { color: #e50914; text-align: center; }
+        .container { max-width: 900px; width: 100%; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .card {
+            background-color: #222;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 40px 20px;
+            cursor: pointer;
+            text-align: center;
+            background-size: cover;
+            background-position: center;
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: scale(1.03); border-color: #e50914; }
+        .card h3 { background-color: rgba(0,0,0,0.7); padding: 10px; border-radius: 4px; display: inline-block; }
+        
+        .quiz-item {
+            background-color: #1a1a1a;
+            border-left: 4px solid #e50914;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        .quiz-fact { font-style: italic; margin-bottom: 15px; font-size: 1.05rem; }
+        
+        .input-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .quiz-input {
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #000;
+            color: #fff;
+            flex-grow: 1;
+            max-width: 300px;
+        }
+        .quiz-input:focus { outline: 2px solid #e50914; }
+        .quiz-input:disabled { background-color: #222; color: #4caf50; font-weight: bold; border-color: #4caf50; }
+        
+        .quiz-btn {
+            padding: 10px 20px;
+            background-color: #e50914;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .quiz-btn:hover:not(:disabled) { background-color: #f40612; }
+        .quiz-btn:disabled { background-color: #555; cursor: not-allowed; opacity: 0.6; }
+        
+        .correct-text { font-weight: bold; margin-left: 10px; }
+        
+        /* Stage 2 Movie Display */
+        .movie-card {
+            display: flex;
+            background-color: #222;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+        @media (max-width: 600px) { .movie-card { flex-direction: column; } }
+        .movie-info { padding: 20px; flex: 1; }
+        .movie-title { margin-top: 0; color: #fff; font-size: 1.5rem; }
+        .synopsis { font-size: 1rem; color: #ccc; margin-bottom: 15px; line-height: 1.5; }
+        .fact-box { background-color: #333; padding: 12px; border-radius: 4px; font-size: 0.9rem; margin-bottom: 15px; border-left: 3px solid #e50914; }
+        .trailer-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #e50914;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .trailer-link:hover { background-color: #f40612; }
+        
+        .hidden { display: none !important; }
+        .nav-btn {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-size: 1rem;
+        }
+        .nav-btn:hover { background-color: #555; }
+        .progress { text-align: center; color: #aaa; margin-bottom: 20px; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+    <div id="stage1" class="container">
+        <h1>Movie Night Unlock</h1>
+        <p style="text-align: center;">Guess the movies from their interesting facts to unlock our movie choices!</p>
+        <div id="quiz-progress" class="progress">Movies Unlocked: 0 / 25</div>
+        
+        <div id="s1-genres" class="grid"></div>
+        <div id="s1-quiz" class="hidden">
+            <button class="nav-btn" onclick="showS1Genres()">← Back to Genres</button>
+            <h2 id="s1-genre-title"></h2>
+            <div id="s1-questions"></div>
+        </div>
+    </div>
+
+    <div id="stage2" class="container hidden">
+        <h1>Movie Selector</h1>
+        <p style="text-align: center;">You did it! Now, choose our movie for tonight.</p>
+        
+        <div id="s2-genres" class="grid"></div>
+        <div id="s2-movies" class="hidden">
+            <button class="nav-btn" onclick="showS2Genres()">← Back to Genres</button>
+            <h2 id="s2-genre-title"></h2>
+            <div id="s2-movie-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // The definitive database. 
+        // Trailer URLs have been fixed to generate bulletproof YouTube Search queries.
+        const db = [
+            {"id": "m_0", "genre": "Chick-flick", "title": "Notting Hill", "fact": "In this movie, the blue door actually belonged to the writer of the movie, Richard Curtis.", "synopsis": "A charming London romance where an ordinary man falls for an extraordinary woman. (as if you didn't know)", "img": "https://images.unsplash.com/photo-1518199266791-5375a83190b7"},
+            {"id": "m_1", "genre": "Chick-flick", "title": "You've got mail", "fact": "This movie, a remake of the 1940's movie \"The Shop Around the Corner\", measurably boosted interest in email culture globally.", "synopsis": "Two business rivals unknowingly fall for each other online. Charming, cosy, and full of heart.", "img": "https://images.unsplash.com/photo-1518199266791-5375a83190b7"},
+            {"id": "m_2", "genre": "Chick-flick", "title": "He's just not that into you", "fact": "This movie was inspired by the writer's book in Sex and the City and features Jennifer Aniston filming some scenes with no make up in order to boost realism.", "synopsis": "Interwoven stories explore modern love, mixed signals, and emotional honesty.", "img": "https://images.unsplash.com/photo-1518199266791-5375a83190b7"},
+            {"id": "m_3", "genre": "Chick-flick", "title": "The Holiday", "fact": "In this movie about two women who swap homes for Christmas, Jack black was chosen as a non-typical rom-com lead.", "synopsis": "Two women swap homes for Christmas and unexpectedly find love and healing.", "img": "https://images.unsplash.com/photo-1518199266791-5375a83190b7"},
+            {"id": "m_4", "genre": "Chick-flick", "title": "About Time", "fact": "Rachel McAdams has starred in multiple time-travel romances. This movie was filmed in one of Cornwall's most photographed houses.", "synopsis": "A heartfelt romance about time travel, love, and appreciating everyday moments.", "img": "https://images.unsplash.com/photo-1518199266791-5375a83190b7"},
+            
+            {"id": "m_5", "genre": "Adventure", "title": "Jungle Cruise", "fact": "Emily Blunt originally declined the role twice, in this movie inspired by a classic Disney ride.", "synopsis": "A lively river expedition filled with humour, danger, and old-school adventure.", "img": "https://images.unsplash.com/photo-1506744038136-46273834b3fb"},
+            {"id": "m_6", "genre": "Adventure", "title": "Uncharted", "fact": "This movie, in which Tom Holland performed many of his own stunts, is based on a Playstation game. The cargo plane sequence, which opens the movie, took over a month to film.", "synopsis": "Treasure-hunting chaos with globe-trotting action and playful banter.", "img": "https://images.unsplash.com/photo-1506744038136-46273834b3fb"},
+            {"id": "m_7", "genre": "Adventure", "title": "Fool's Gold", "fact": "Matthew McConaughey and Kate Hudson reunite for their second film together in this treasure hunt adventure shot in the Caribbean and Queensland.", "synopsis": "A sun-soaked treasure hunt with romance, comedy, and tropical escapism.", "img": "https://images.unsplash.com/photo-1506744038136-46273834b3fb"},
+            {"id": "m_8", "genre": "Adventure", "title": "Bolt", "fact": "In this animated pet adventure movie, the hero's character was inspired by a white German Shepard.", "synopsis": "A heroic dog embarks on a cross-country adventure to save his human.", "img": "https://images.unsplash.com/photo-1506744038136-46273834b3fb"},
+            {"id": "m_9", "genre": "Adventure", "title": "National Treasure", "fact": "This fast paced treasure hunt movie blends real American historical facts with invented conspiracies and mythology, and some of the biggest movie sets of the 2000's.", "synopsis": "A fast-paced hunt through American history for a legendary hidden treasure.", "img": "https://images.unsplash.com/photo-1506744038136-46273834b3fb"},
+            
+            {"id": "m_10", "genre": "Thriller / Suspense", "title": "Inception", "fact": "The script of this movie took Christopher Nolan 10 years to write, and features a musical score with a slowed version of the famous Edith Piaf song, 'Non, je ne regrette rien'.", "synopsis": "A mind-bending heist inside dreams, blending action with psychological tension.", "img": "https://images.unsplash.com/photo-1536440136628-849c177e76a1"},
+            {"id": "m_11", "genre": "Thriller / Suspense", "title": "Gone Girl", "fact": "Rosamund Pike trained with a forensic psychologist and Ben Affleck fought to (not) wear a Yankees cap in this intense thriller.", "synopsis": "A twisting mystery about marriage, media, and manipulation.", "img": "https://images.unsplash.com/photo-1536440136628-849c177e76a1"},
+            {"id": "m_12", "genre": "Thriller / Suspense", "title": "A Quiet Place", "fact": "This is the first movie in which John Krasinski and Emily Blunt perform together after they were married. It led to two sequels.", "synopsis": "A family survives in silence while hunted by sound-sensitive creatures.", "img": "https://images.unsplash.com/photo-1536440136628-849c177e76a1"},
+            {"id": "m_13", "genre": "Thriller / Suspense", "title": "Déjà vu", "fact": "Inspired by real FBI surveilance tech, this tim-looping investivation movie features a car chase that is surveiled from a different moment in time.", "synopsis": "A time-looping investigation into a catastrophic crime.", "img": "https://images.unsplash.com/photo-1536440136628-849c177e76a1"},
+            {"id": "m_14", "genre": "Thriller / Suspense", "title": "Sicario", "fact": "The title of this film is a direct translation for a Spanish word for Hitman, especially in the context of drug cartels, which is what this movie is about.", "synopsis": "An FBI agent joins a covert task force targeting a cartel, descending into moral ambiguity and escalating violence.", "img": "https://images.unsplash.com/photo-1536440136628-849c177e76a1"},
+            
+            {"id": "m_15", "genre": "Musicals", "title": "Michael", "fact": "In this latest music icon biopic, the lead character is played by his nephew.", "synopsis": "A biographical musical drama exploring the life, music, and legacy of Michael Jackson, starring Jaafar Jackson.", "img": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad"},
+            {"id": "m_16", "genre": "Musicals", "title": "Bohemian Rapsody", "fact": "Malek wore prosthetic teeth in this inspiring movie in which the Live Aid set was rebuilt exactly as the original was.", "synopsis": "A vibrant celebration of Freddie Mercury and Queen’s legendary music.", "img": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad"},
+            {"id": "m_17", "genre": "Musicals", "title": "Chicago", "fact": "Catherine Zeta Jones insisted on doing her own dances in this adaptation of a stage musical, which won best picture and revived Hollywood's interest in musicals.", "synopsis": "A dazzling, jazz-filled tale of fame, crime, and showbiz ambition.", "img": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad"},
+            {"id": "m_18", "genre": "Musicals", "title": "Les Miserables", "fact": "Featuring songs sung live on set, this epic musical stars two top-billed Australian male stars in their first film together.", "synopsis": "An epic musical of revolution, redemption, and unforgettable songs.", "img": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad"},
+            {"id": "m_19", "genre": "Musicals", "title": "The Greatest Showman", "fact": "\"This is Me\" is the breakout anthem in this sleeper hit musical. It was written in one day and won the Golden Globe for best original song.", "synopsis": "A colourful, uplifting musical inspired by P.T. Barnum’s circus vision.", "img": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad"},
+            
+            {"id": "m_20", "genre": "Classics", "title": "Witness", "fact": "This film features a barn-raising scene which used real Amish carpenters, although they did not visually appear in the scene to avoid the violation of Ordnung and depictions of vanity or performance.", "synopsis": "A detective hides in Amish country while protecting a young murder witness.", "img": "https://images.unsplash.com/photo-1485846234645-a62644f84728"},
+            {"id": "m_21", "genre": "Classics", "title": "The Breakfast Club", "fact": "A cult movie filmed almost entirely in one school location (Maine North High School) that uses improvisation extensively, including the famous fist-pump ending.", "synopsis": "Five teens discover unexpected connection during Saturday detention.", "img": "https://images.unsplash.com/photo-1485846234645-a62644f84728"},
+            {"id": "m_22", "genre": "Classics", "title": "Raiders of the Lost Ark", "fact": "7,000 real snakes were used in the 'snake scene' in this archeological action movie.", "synopsis": "Indiana Jones races Nazis to recover the Ark of the Covenant.", "img": "https://images.unsplash.com/photo-1485846234645-a62644f84728"},
+            {"id": "m_23", "genre": "Classics", "title": "Die Hard", "fact": "20th Century Fox used it's own corporate tower (Fox Plaza) as the film's setting ('Nakatomi Plaza') for this very famous Christmas eve action drama.", "synopsis": "A lone cop battles terrorists in a skyscraper on Christmas Eve.", "img": "https://images.unsplash.com/photo-1485846234645-a62644f84728"},
+            {"id": "m_24", "genre": "Classics", "title": "Forest Gump", "fact": "The fictional shrimp company in this film, Bubba Gump Shrimp Co, became a real restaurant chain in six countries across four continents.", "synopsis": "A gentle man’s extraordinary life unfolds through iconic American moments.", "img": "https://images.unsplash.com/photo-1485846234645-a62644f84728"}
+        ];
+
+        const genres = ["Chick-flick", "Adventure", "Thriller / Suspense", "Musicals", "Classics"];
+        
+        let unlockedMovies = new Set();
+        let userAnswers = {}; // State persistence
+
+        // --- Core Application Logic ---
+
+        function initApp() {
+            renderStage1Genres();
+            renderStage2Genres();
+            updateProgress();
+        }
+
+        // --- Text Normalization & Fuzzy Logic ---
+        function removeAccentsAndPunctuation(str) {
+            // Converts "Déjà vu" -> "dejavu", handles all apostrophes and spaces safely
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, '');
+        }
+
+        function getSimilarityScore(s1, s2) {
+            const n1 = removeAccentsAndPunctuation(s1);
+            const n2 = removeAccentsAndPunctuation(s2);
+            
+            if (n1 === n2) return 1.0;
+            if (n1.length === 0 || n2.length === 0) return 0.0;
+            
+            // Standard Levenshtein Distance Calculation
+            let matrix = Array(n1.length + 1).fill(null).map(() => Array(n2.length + 1).fill(null));
+            for (let i = 0; i <= n1.length; i++) matrix[i][0] = i;
+            for (let j = 0; j <= n2.length; j++) matrix[0][j] = j;
+            
+            for (let i = 1; i <= n1.length; i++) {
+                for (let j = 1; j <= n2.length; j++) {
+                    let cost = (n1[i-1] === n2[j-1]) ? 0 : 1;
+                    matrix[i][j] = Math.min(
+                        matrix[i-1][j] + 1,      // deletion
+                        matrix[i][j-1] + 1,      // insertion
+                        matrix[i-1][j-1] + cost  // substitution
+                    );
+                }
+            }
+            
+            const maxLen = Math.max(n1.length, n2.length);
+            return (maxLen - matrix[n1.length][n2.length]) / maxLen;
+        }
+
+        function playVictoryJingle() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, High C
+                notes.forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.15 + 0.3);
+                    osc.start(audioCtx.currentTime + i * 0.15);
+                    osc.stop(audioCtx.currentTime + i * 0.15 + 0.3);
+                });
+            } catch(e) { console.warn("Browser audio blocked"); }
+        }
+
+        function updateProgress() {
+            document.getElementById('quiz-progress').innerText = `Movies Unlocked: ${unlockedMovies.size} / ${db.length}`;
+            if (unlockedMovies.size === db.length) {
+                playVictoryJingle();
+                setTimeout(() => {
+                    document.getElementById('stage1').classList.add('hidden');
+                    document.getElementById('stage2').classList.remove('hidden');
+                }, 1500); // 1.5s delay so she can see the final "Correct" message before transition
+            }
+        }
+
+        // --- STAGE 1 DOM BUILDING ---
+        
+        function renderStage1Genres() {
+            const grid = document.getElementById('s1-genres');
+            grid.innerHTML = '';
+            
+            genres.forEach(genreName => {
+                const movieSample = db.find(m => m.genre === genreName);
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('${movieSample.img}')`;
+                
+                const title = document.createElement('h3');
+                title.innerText = genreName;
+                card.appendChild(title);
+                
+                card.addEventListener('click', () => loadStage1Quiz(genreName));
+                grid.appendChild(card);
+            });
+        }
+
+        function showS1Genres() {
+            document.getElementById('s1-quiz').classList.add('hidden');
+            document.getElementById('s1-genres').classList.remove('hidden');
+        }
+
+        function loadStage1Quiz(genreName) {
+            document.getElementById('s1-genres').classList.add('hidden');
+            document.getElementById('s1-quiz').classList.remove('hidden');
+            document.getElementById('s1-genre-title').innerText = genreName;
+            
+            const questionsContainer = document.getElementById('s1-questions');
+            questionsContainer.innerHTML = ''; // Clear old content
+            
+            const genreMovies = db.filter(m => m.genre === genreName);
+            
+            genreMovies.forEach(movie => {
+                // Build the DOM manually to avoid any apostrophe string injection bugs
+                const wrapper = document.createElement('div');
+                wrapper.className = 'quiz-item';
+                
+                const factText = document.createElement('div');
+                factText.className = 'quiz-fact';
+                factText.innerHTML = `<strong>Fact:</strong> ${movie.fact}`;
+                wrapper.appendChild(factText);
+
+                const controlGroup = document.createElement('div');
+                controlGroup.className = 'input-group';
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'quiz-input';
+                input.placeholder = "Guess the movie...";
+                
+                const btn = document.createElement('button');
+                btn.className = 'quiz-btn';
+                btn.innerText = "Submit";
+                
+                const resultText = document.createElement('div');
+                resultText.className = 'correct-text';
+
+                // Check if this movie is already unlocked
+                if (unlockedMovies.has(movie.id)) {
+                    input.value = movie.title;
+                    input.disabled = true;
+                    btn.classList.add('hidden');
+                    resultText.style.color = '#4caf50';
+                    resultText.innerText = `✅ Correct! It's ${movie.title}`;
+                } else {
+                    // Populate from persistence if available
+                    input.value = userAnswers[movie.id] || '';
+                    
+                    // Live Event Listeners
+                    input.addEventListener('input', () => {
+                        btn.disabled = false;
+                        resultText.innerText = ""; // Clear error when typing
+                    });
+                    
+                    input.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') btn.click();
+                    });
+                    
+                    btn.addEventListener('click', () => {
+                        const val = input.value.trim();
+                        if (!val) return;
+                        
+                        userAnswers[movie.id] = val; // Persist
+                        
+                        // Enforce 90% accuracy rule
+                        const score = getSimilarityScore(val, movie.title);
+                        if (score >= 0.9) {
+                            unlockedMovies.add(movie.id);
+                            
+                            // Auto-correct to perfect title and lock
+                            input.value = movie.title;
+                            userAnswers[movie.id] = movie.title;
+                            input.disabled = true;
+                            
+                            btn.classList.add('hidden'); // hide submit button
+                            
+                            resultText.style.color = '#4caf50';
+                            resultText.innerText = `✅ Correct! It's ${movie.title}`;
+                            
+                            updateProgress();
+                        } else {
+                            resultText.style.color = '#e50914';
+                            resultText.innerText = "❌ Not quite, try again!";
+                            btn.disabled = true; // Force them to type to re-enable
+                        }
+                    });
+                }
+                
+                controlGroup.appendChild(input);
+                controlGroup.appendChild(btn);
+                controlGroup.appendChild(resultText);
+                wrapper.appendChild(controlGroup);
+                
+                questionsContainer.appendChild(wrapper);
+            });
+        }
+
+        // --- STAGE 2 DOM BUILDING ---
+
+        function renderStage2Genres() {
+            const grid = document.getElementById('s2-genres');
+            grid.innerHTML = '';
+            
+            genres.forEach(genreName => {
+                const movieSample = db.find(m => m.genre === genreName);
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('${movieSample.img}')`;
+                
+                const title = document.createElement('h3');
+                title.innerText = genreName;
+                card.appendChild(title);
+                
+                card.addEventListener('click', () => loadStage2Movies(genreName));
+                grid.appendChild(card);
+            });
+        }
+
+        function showS2Genres() {
+            document.getElementById('s2-movies').classList.add('hidden');
+            document.getElementById('s2-genres').classList.remove('hidden');
+        }
+
+        function loadStage2Movies(genreName) {
+            document.getElementById('s2-genres').classList.add('hidden');
+            document.getElementById('s2-movies').classList.remove('hidden');
+            document.getElementById('s2-genre-title').innerText = genreName;
+            
+            const listContainer = document.getElementById('s2-movie-list');
+            listContainer.innerHTML = '';
+            
+            const genreMovies = db.filter(m => m.genre === genreName);
+            
+            genreMovies.forEach(movie => {
+                // Ensure trailer link always works by searching YouTube for the title
+                const queryTitle = movie.title.split(' ').join('+');
+                const bulletproofTrailerLink = `https://www.youtube.com/results?search_query=${queryTitle}+official+trailer`;
+
+                const mCard = document.createElement('div');
+                mCard.className = 'movie-card';
+                mCard.innerHTML = `
+                    <div class="movie-info">
+                        <h3 class="movie-title">${movie.title}</h3>
+                        <div class="synopsis">${movie.synopsis}</div>
+                        <div class="fact-box"><strong>Interesting Fact:</strong> ${movie.fact}</div>
+                        <a href="${bulletproofTrailerLink}" target="_blank" class="trailer-link">Watch Trailer on YouTube</a>
+                    </div>
+                `;
+                listContainer.appendChild(mCard);
+            });
+
+            // "I have another suggestion" option
+            const suggestionCard = document.createElement('div');
+            suggestionCard.className = 'movie-card';
+            suggestionCard.style.cursor = 'pointer';
+            suggestionCard.addEventListener('click', () => alert("Can't wait to hear your suggestion!"));
+            suggestionCard.innerHTML = `
+                <div class="movie-info" style="text-align: center; display: flex; align-items: center; justify-content: center; min-height: 100px;">
+                    <h3 class="movie-title">💡 I have another suggestion</h3>
+                </div>
+            `;
+            listContainer.appendChild(suggestionCard);
+        }
+
+        // Initialize the App
+        initApp();
+    </script>
+</body>
+</html>
